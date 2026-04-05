@@ -1,4 +1,5 @@
 🎈 Balon Patlatma
+https://mehmetdoqan.github.io/balon_patlatma/
 
 Çocuklar için tarayıcı tabanlı, blok kodlama mantığıyla çalışan eğitici bir bulmaca oyunu.
 Hiçbir kurulum gerektirmez — tek bir HTML dosyasıdır, tarayıcıda açılır.
