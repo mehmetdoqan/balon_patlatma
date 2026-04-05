@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🎈 Balon Patlatma</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #a29bfe, #fd79a8, #fdcb6e);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 16px;
+    }
+    .phone {
+      width: 360px;
+      background: white;
+      border-radius: 36px;
+      border: 8px solid #222;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    }
+    .scr { width: 100%; display: none; flex-direction: column; }
+    .scr.on { display: flex; }
+
+    /* HARİTA */
+    .map-header {
+      padding: 16px 20px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(180deg,#e0c3fc,#f8d7f0);
+    }
+    .lvl-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      padding: 10px 14px 20px;
+      overflow-y: auto;
+      max-height: 560px;
+      background: linear-gradient(180deg,#f8d7f0 0%,#ffecd2 100%);
+    }
+    .lc {
+      height: 54px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      background: #ddd;
+      color: #aaa;
+      cursor: not-allowed;
+      position: relative;
+    }
+    .lc.open { background: white; border: 2.5px solid #a29bfe; color: #6c5ce7; cursor: pointer; }
+    .lc.done { background: #f0e6ff; border: 2.5px solid #a29bfe; color: #6c5ce7; }
+    .lc.done::after { content: '⭐'; position: absolute; bottom: 1px; font-size: 9px; }
+
+    /* OYUN */
+    .play-header {
+      padding: 10px 14px 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(180deg,#e0c3fc,#f0d9ff);
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, 54px);
+      grid-template-rows: repeat(5, 54px);
+      gap: 3px;
+      padding: 4px;
+      border-radius: 12px;
+      margin: 4px auto;
+      position: relative;
+      border: 4px solid #a29bfe;
+      background: #a29bfe;
+    }
+    .sq {
+      width: 54px;
+      height: 54px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+    }
+    .sq-light { background: #f3e8ff; }
+    .sq-dark  { background: #e8d5ff; }
+
+    /* BALON */
+    .balloon-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+    .balloon-svg {
+      animation: floatBalloon 2s ease-in-out infinite;
+    }
+    @keyframes floatBalloon {
+      0%,100% { transform: translateY(0px); }
+      50%      { transform: translateY(-5px); }
+    }
+    @keyframes popBalloon {
+      0%   { transform: scale(1);   opacity: 1; }
+      30%  { transform: scale(1.6); opacity: 0.9; }
+      60%  { transform: scale(0.4); opacity: 0.5; }
+      100% { transform: scale(0);   opacity: 0; }
+    }
+    .popping .balloon-svg { animation: popBalloon 0.4s ease-out forwards; }
+
+    /* PARÇACIKLAR */
+    .particle {
+      position: absolute;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: 0;
+    }
+    @keyframes p0 { to { transform: translate(-28px,-28px) scale(0); opacity:0; } }
+    @keyframes p1 { to { transform: translate( 28px,-28px) scale(0); opacity:0; } }
+    @keyframes p2 { to { transform: translate(-28px, 28px) scale(0); opacity:0; } }
+    @keyframes p3 { to { transform: translate( 28px, 28px) scale(0); opacity:0; } }
+    @keyframes p4 { to { transform: translate(  0px,-36px) scale(0); opacity:0; } }
+    @keyframes p5 { to { transform: translate(  0px, 36px) scale(0); opacity:0; } }
+    @keyframes p6 { to { transform: translate(-36px,  0px) scale(0); opacity:0; } }
+    @keyframes p7 { to { transform: translate( 36px,  0px) scale(0); opacity:0; } }
+    .burst .particle { opacity: 1; }
+    .burst .particle:nth-child(1) { animation: p0 0.45s ease-out forwards; }
+    .burst .particle:nth-child(2) { animation: p1 0.45s ease-out forwards; }
+    .burst .particle:nth-child(3) { animation: p2 0.45s ease-out forwards; }
+    .burst .particle:nth-child(4) { animation: p3 0.45s ease-out forwards; }
+    .burst .particle:nth-child(5) { animation: p4 0.45s ease-out forwards; }
+    .burst .particle:nth-child(6) { animation: p5 0.45s ease-out forwards; }
+    .burst .particle:nth-child(7) { animation: p6 0.45s ease-out forwards; }
+    .burst .particle:nth-child(8) { animation: p7 0.45s ease-out forwards; }
+
+    /* İĞNE (karakter) */
+    .needle {
+      position: absolute;
+      width: 54px;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      z-index: 20;
+      pointer-events: none;
+      transition: all 0.55s cubic-bezier(0.25,0.1,0.25,1);
+    }
+    @keyframes needleHop {
+      0%,100% { transform: scale(1) rotate(0deg); }
+      40%     { transform: scale(1.3) rotate(-15deg); }
+      70%     { transform: scale(1.1) rotate(5deg); }
+    }
+    .needle.hopping { animation: needleHop 0.55s ease-in-out; }
+
+    @keyframes sadShake {
+      0%,100%{transform:translateX(0) rotate(0deg)}
+      20%{transform:translateX(-8px) rotate(-10deg)}
+      40%{transform:translateX(8px) rotate(10deg)}
+      60%{transform:translateX(-6px) rotate(-6deg)}
+      80%{transform:translateX(6px) rotate(6deg)}
+    }
+    .needle.shaking { animation: sadShake 0.6s ease-in-out; }
+
+    /* KONFETI */
+    @keyframes confettiBurst {
+      0%{opacity:1;transform:scale(0) rotate(0deg)}
+      100%{opacity:0;transform:scale(2.5) rotate(360deg)}
+    }
+    .confetti {
+      position: absolute;
+      pointer-events: none;
+      z-index: 35;
+      font-size: 18px;
+      animation: confettiBurst 0.8s ease-out forwards;
+    }
+
+    /* KOD BÖLÜMÜ */
+    .code-section {
+      padding: 6px 10px 10px;
+      background: #f8f0ff;
+      border-radius: 14px 14px 0 0;
+    }
+    .cnt-badge { font-size: 11px; color: #888; text-align: right; margin-bottom: 3px; }
+    .drop-frame {
+      min-height: 60px;
+      max-height: 84px;
+      background: #fff;
+      border: 2.5px dashed #bbb;
+      border-radius: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 7px;
+      margin-bottom: 8px;
+      overflow-y: auto;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .drop-frame.drag-over { border-color: #a29bfe; background: #f0e6ff; }
+    .drop-frame.reject { border-color: #f44336; background: #ffebee; }
+    .chip {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: grab;
+      user-select: none;
+      flex-shrink: 0;
+      transition: transform 0.15s, opacity 0.15s;
+      border-bottom: 3px solid rgba(0,0,0,0.25);
+      color: white;
+    }
+    .chip.active-step {
+      transform: scale(1.35);
+      border: 3px solid #FFD700;
+      border-bottom: 4px solid #b8860b;
+      box-shadow: 0 0 0 3px rgba(255,215,0,0.5);
+      z-index: 10;
+    }
+    .chip.done-step { opacity: 0.38; transform: scale(0.88); }
+    .chip.dragging { opacity: 0.3; transform: scale(0.8); }
+    @keyframes chipOut {
+      0%{transform:scale(1) rotate(0deg);opacity:1}
+      100%{transform:scale(0) rotate(25deg);opacity:0}
+    }
+    .chip.removing { animation: chipOut 0.28s ease-in forwards; pointer-events: none; }
+    .chip-UP    { background: #e53935; border-bottom-color: #8b0000; }
+    .chip-DOWN  { background: #8E24AA; border-bottom-color: #4a0072; }
+    .chip-LEFT  { background: #F57C00; border-bottom-color: #7f3b00; }
+    .chip-RIGHT { background: #1E88E5; border-bottom-color: #0d3f7a; }
+    .chip-POP   { background: #e84393; border-bottom-color: #8b0050; }
+
+    .arrow-row {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+    .arr-src {
+      width: 50px;
+      height: 50px;
+      border: none;
+      border-radius: 14px;
+      font-size: 20px;
+      cursor: grab;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .arr-UP    { background: #e53935; box-shadow: 0 6px 0 #8b0000; }
+    .arr-DOWN  { background: #8E24AA; box-shadow: 0 6px 0 #4a0072; }
+    .arr-LEFT  { background: #F57C00; box-shadow: 0 6px 0 #7f3b00; }
+    .arr-RIGHT { background: #1E88E5; box-shadow: 0 6px 0 #0d3f7a; }
+    .arr-POP   { background: #e84393; box-shadow: 0 6px 0 #8b0050; font-size:22px; }
+    .arr-src:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.3) !important; }
+
+    .go-btn {
+      width: 100%;
+      background: linear-gradient(90deg,#a29bfe,#fd79a8);
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 24px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 5px 0 #6c5ce7;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .go-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #6c5ce7; }
+
+    /* MODAL */
+    .modal-ov {
+      position: absolute;
+      top:0; left:0;
+      width:100%; height:100%;
+      background: rgba(0,0,0,0.75);
+      z-index: 500;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-ov.show { display: flex; }
+    .modal-card {
+      background: white;
+      padding: 28px 22px;
+      border-radius: 28px;
+      text-align: center;
+      width: 100%;
+    }
+    @keyframes popIn {
+      from{transform:scale(0.4);opacity:0}
+      to{transform:scale(1);opacity:1}
+    }
+    .modal-card { animation: popIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
+    .modal-btn {
+      width: 100%;
+      border: none;
+      padding: 14px;
+      border-radius: 24px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .btn-purple { background: linear-gradient(90deg,#a29bfe,#6c5ce7); color: white; box-shadow: 0 5px 0 #4834d4; }
+    .btn-orange { background: #FF9800; color: white; box-shadow: 0 5px 0 #e65100; }
+
+    /* EDITOR */
+    .edit-tray {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: white;
+      border-top: 4px solid #a29bfe;
+      padding: 12px;
+      transform: translateY(100%);
+      transition: transform 0.3s;
+      z-index: 200;
+      border-radius: 18px 18px 0 0;
+    }
+    .edit-tray.open { transform: translateY(0); }
+    .tool-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 10px; }
+    .tool-btn { width: 48px; height: 48px; border: 2px solid #ddd; border-radius: 12px; background: white; font-size: 22px; cursor: pointer; }
+    .tool-btn.sel { border-color: #a29bfe; background: #f0e6ff; }
+    .save-btn { width: 100%; background: #a29bfe; color: white; border: none; padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+
+    /* ŞİFRE */
+    .pw-ov {
+      position: absolute; top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.7); z-index: 600;
+      display: none; align-items: center; justify-content: center;
+    }
+    .pw-ov.show { display: flex; }
+    .pw-card { background: white; padding: 24px 20px; border-radius: 22px; text-align: center; width: 240px; }
+    .pw-input { width: 100%; padding: 10px 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 18px; text-align: center; letter-spacing: 4px; outline: none; margin-bottom: 8px; }
+    .pw-input:focus { border-color: #a29bfe; }
+    .pw-err { color: #f44336; font-size: 12px; font-weight: 700; margin-bottom: 8px; display: none; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
+    .pw-btns { display: flex; gap: 8px; }
+    .pw-ok { flex:1; background: #a29bfe; color: white; border: none; padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 0 #6c5ce7; }
+    .pw-cancel { flex:1; background: #eee; color: #555; border: none; padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+
+    /* ZORLUK SEÇİM */
+    .diff-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 20px;
+      background: linear-gradient(180deg,#f8d7f0,#ffecd2);
+      min-height: 500px;
+      justify-content: center;
+      gap: 16px;
+    }
+    .diff-btn {
+      width: 100%;
+      padding: 18px;
+      border: none;
+      border-radius: 20px;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      color: white;
+      box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+      transition: transform 0.1s;
+    }
+    .diff-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+    .diff-easy   { background: #00b894; box-shadow: 0 6px 0 #00695c; }
+    .diff-medium { background: #fdcb6e; box-shadow: 0 6px 0 #e67e22; color: #333; }
+    .diff-hard   { background: #d63031; box-shadow: 0 6px 0 #8b0000; }
+  </style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- ZORLUK SEÇİM EKRANI -->
+  <div id="sDiff" class="scr on">
+    <div class="diff-screen">
+      <div style="font-size:72px;margin-bottom:8px">🎈</div>
+      <h1 style="font-size:26px;font-weight:800;color:#6c5ce7;margin-bottom:4px">Balon Patlatma</h1>
+      <p style="color:#888;font-size:14px;margin-bottom:24px">Komutları sırala, balonları patlat!</p>
+      <button class="diff-btn diff-easy"   onclick="selectDiff('kolay')">🟢 KOLAY</button>
+      <button class="diff-btn diff-medium" onclick="selectDiff('orta')">🟡 ORTA</button>
+      <button class="diff-btn diff-hard"   onclick="selectDiff('zor')">🔴 ZOR</button>
+    </div>
+  </div>
+
+  <!-- HARİTA EKRANI -->
+  <div id="sMap" class="scr">
+    <div class="map-header">
+      <button onclick="goDiff()" style="border:none;background:none;font-size:21px;cursor:pointer;">🏠</button>
+      <span id="mapTitle" style="font-size:17px;font-weight:700;color:#6c5ce7">🟢 Kolay</span>
+      <span id="scoreDisp" style="font-weight:700;color:#a29bfe">🎈 0</span>
+    </div>
+    <div class="lvl-grid" id="lvlGrid"></div>
+  </div>
+
+  <!-- OYUN EKRANI -->
+  <div id="sPlay" class="scr">
+    <div class="play-header">
+      <button onclick="goMap()" style="border:none;background:none;font-size:21px;cursor:pointer;">🏠</button>
+      <b id="lvlLabel">Bölüm 1</b>
+      <button onclick="toggleEdit()" style="border:none;background:none;font-size:21px;cursor:pointer;">⚙️</button>
+    </div>
+
+    <div class="board" id="board">
+      <div id="needle" class="needle">📌</div>
+    </div>
+
+    <div class="code-section">
+      <div class="cnt-badge"><span id="cntBadge">0</span> / 20 — çerçeve dışına sürükle = sil</div>
+      <div class="drop-frame" id="dropZone"
+        ondragover="onDZOver(event)"
+        ondragleave="onDZLeave(event)"
+        ondrop="onDZDrop(event)"></div>
+      <div class="arrow-row">
+        <button class="arr-src arr-UP"    draggable="true" ondragstart="srcDrag(event,'UP')"    onclick="addCmd('UP')">⬆️</button>
+        <button class="arr-src arr-LEFT"  draggable="true" ondragstart="srcDrag(event,'LEFT')"  onclick="addCmd('LEFT')">⬅️</button>
+        <button class="arr-src arr-DOWN"  draggable="true" ondragstart="srcDrag(event,'DOWN')"  onclick="addCmd('DOWN')">⬇️</button>
+        <button class="arr-src arr-RIGHT" draggable="true" ondragstart="srcDrag(event,'RIGHT')" onclick="addCmd('RIGHT')">➡️</button>
+        <button class="arr-src arr-POP"   draggable="true" ondragstart="srcDrag(event,'POP')"   onclick="addCmd('POP')">📌</button>
+      </div>
+      <button class="go-btn" onclick="runCode()">🚀 BAŞLAT</button>
+    </div>
+
+    <!-- BAŞARI MODALI -->
+    <div id="winModal" class="modal-ov">
+      <div class="modal-card">
+        <div style="font-size:50px">🎉</div>
+        <h2 style="color:#6c5ce7;margin:8px 0 4px;font-size:22px">MÜKEMMEL!</h2>
+        <p style="color:#666;font-size:13px">Tüm balonlar patlatıldı!</p>
+        <div style="font-size:30px;color:#FFD700;margin:10px 0">⭐⭐⭐</div>
+        <button class="modal-btn btn-purple" onclick="goNext()">BİR SONRAKİ BÖLÜM ➔</button>
+      </div>
+    </div>
+
+    <!-- HATA MODALI -->
+    <div id="failModal" class="modal-ov">
+      <div class="modal-card">
+        <div id="failIcon" style="font-size:50px">📌</div>
+        <h2 id="failTitle" style="color:#FF9800;margin:8px 0 4px;font-size:20px">OLMADI!</h2>
+        <p id="failMsg" style="color:#666;font-size:13px;margin-bottom:4px">Tekrar dene!</p>
+        <button class="modal-btn btn-orange" onclick="retryLvl()">🔄 TEKRAR DENE</button>
+      </div>
+    </div>
+
+    <!-- EDITOR TRAY -->
+    <div class="edit-tray" id="editTray">
+      <div style="text-align:center;font-weight:700;margin-bottom:9px;color:#a29bfe">🛠️ HARİTAYI DÜZENLE</div>
+      <div class="tool-row">
+        <button class="tool-btn sel" id="tN" onclick="selTool('N')">📌</button>
+        <button class="tool-btn" id="tB" onclick="selTool('B')">🎈</button>
+        <button class="tool-btn" id="tW" onclick="selTool('W')">🧱</button>
+        <button class="tool-btn" id="tX" onclick="selTool('X')">❌</button>
+      </div>
+      <button class="save-btn" onclick="toggleEdit()">✅ KAYDET VE KAPAT</button>
+    </div>
+
+    <!-- ŞİFRE MODALI -->
+    <div id="pwOv" class="pw-ov">
+      <div class="pw-card">
+        <div style="font-size:30px;margin-bottom:6px">🔐</div>
+        <h3 style="color:#a29bfe;margin-bottom:6px;font-size:16px">Editör Şifresi</h3>
+        <p style="color:#888;font-size:12px;margin-bottom:14px">Bu alan yalnızca öğretmenler içindir</p>
+        <input id="pwInput" class="pw-input" type="password" placeholder="••••"
+          onkeydown="if(event.key==='Enter')checkPw()">
+        <div id="pwErr" class="pw-err">❌ Yanlış şifre!</div>
+        <div class="pw-btns">
+          <button class="pw-cancel" onclick="closePw()">İptal</button>
+          <button class="pw-ok" onclick="checkPw()">Giriş ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── BALON RENKLERİ ──
+var BALLOON_COLORS = ['#FF4757','#FFA502','#2ED573','#1E90FF','#A29BFE','#FD79A8','#FDCB6E','#FF6B81'];
+
+// ── BALON SVG ──
+function makeBalloonSVG(color, size) {
+  size = size || 38;
+  var lighter = lightenColor(color, 40);
+  return '<svg width="'+size+'" height="'+(size+10)+'" viewBox="0 0 38 48" xmlns="http://www.w3.org/2000/svg">'
+    + '<ellipse cx="19" cy="20" rx="14" ry="17" fill="'+color+'"/>'
+    + '<ellipse cx="14" cy="13" rx="4" ry="6" fill="rgba(255,255,255,0.35)"/>'
+    + '<polygon points="19,37 16,43 22,43" fill="'+color+'"/>'
+    + '<line x1="19" y1="43" x2="19" y2="47" stroke="#aaa" stroke-width="1.5"/>'
+    + '</svg>';
+}
+function lightenColor(hex, amt) { return hex; }
+
+// ── PARÇACIK HTML ──
+function makeParticles(color) {
+  var html = '';
+  for (var i = 0; i < 8; i++) {
+    html += '<div class="particle" style="background:'+color+';top:50%;left:50%;margin:-4px 0 0 -4px;"></div>';
+  }
+  return html;
+}
+
+var G = {
+  diff: 'kolay',
+  unlocked: { kolay:1, orta:1, zor:1 },
+  done: { kolay:[], orta:[], zor:[] },
+  lvls: { kolay:[], orta:[], zor:[] },
+  cur: 0, tool: 'N', running: false,
+  pos: {r:4,c:0}, cmds: [],
+  dragSrcIdx: -1, dragFromSrc: false,
+  activeStep: -1, editorUnlocked: false
+};
+
+var DIR_COLORS = { UP:'chip-UP', DOWN:'chip-DOWN', LEFT:'chip-LEFT', RIGHT:'chip-RIGHT', POP:'chip-POP' };
+var DIR_ARROWS = { UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→', POP:'📌' };
+
+/* ── SES ── */
+var _ctx = null;
+function getCtx() {
+  if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_ctx.state === 'suspended') _ctx.resume();
+  return _ctx;
+}
+function playTone(freq, type, dur, vol, delay) {
+  try {
+    var ctx = getCtx();
+    var o = ctx.createOscillator();
+    var g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, ctx.currentTime + (delay||0));
+    g.gain.setValueAtTime(vol||0.2, ctx.currentTime + (delay||0));
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (delay||0) + dur);
+    o.start(ctx.currentTime + (delay||0));
+    o.stop(ctx.currentTime + (delay||0) + dur);
+  } catch(e) {}
+}
+function playSound(type) {
+  try {
+    if (type === 'move') {
+      playTone(440, 'sine', 0.1, 0.12);
+    } else if (type === 'pop') {
+      // Balon patlatma sesi: yüksek frekans → hızlı düşüş
+      playTone(800, 'sine', 0.05, 0.3);
+      playTone(600, 'triangle', 0.08, 0.25, 0.04);
+      playTone(300, 'sine', 0.12, 0.2, 0.08);
+      playTone(150, 'sawtooth', 0.15, 0.15, 0.12);
+    } else if (type === 'win') {
+      [523,659,784,1047].forEach(function(f,i){ playTone(f,'triangle',0.3,0.2,i*0.13); });
+    } else if (type === 'wall') {
+      playTone(180,'sawtooth',0.12,0.25);
+      playTone(100,'sawtooth',0.18,0.2,0.1);
+    } else if (type === 'sad') {
+      playTone(400,'sine',0.15,0.18);
+      playTone(300,'sine',0.2, 0.15,0.15);
+      playTone(220,'sine',0.25,0.12,0.32);
+    } else if (type === 'miss') {
+      playTone(250,'sawtooth',0.1,0.2);
+      playTone(200,'sawtooth',0.15,0.15,0.1);
+    }
+  } catch(e) {}
+}
+
+/* ── BÖLÜMLER ── */
+function mkLvls() {
+  // KOLAY: 1 balon, az engel
+  var easyMaps = [
+    {s:{r:4,c:0},ba:[{r:3,c:0,ci:0}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:4,c:1,ci:1}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:2,c:0,ci:2}],wa:[]},
+    {s:{r:0,c:0},ba:[{r:0,c:1,ci:3}],wa:[]},
+    {s:{r:4,c:4},ba:[{r:3,c:4,ci:0}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:4,c:2,ci:1}],wa:[]},
+    {s:{r:0,c:0},ba:[{r:2,c:0,ci:2}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:3,c:1,ci:3}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:2,c:2,ci:0}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:0,c:0,ci:1}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:2}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:0,c:2,ci:3}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:2,c:4,ci:0}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:1},{r:4,c:4,ci:2}],wa:[]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:3}],wa:[{r:2,c:2}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:0}],wa:[{r:1,c:2},{r:3,c:2}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:1},{r:0,c:0,ci:2}],wa:[{r:2,c:2}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:3}],wa:[{r:2,c:1},{r:2,c:2},{r:2,c:3}]},
+    {s:{r:0,c:0},ba:[{r:4,c:4,ci:0}],wa:[{r:2,c:2}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:1},{r:2,c:2,ci:2}],wa:[{r:1,c:1},{r:3,c:3}]}
+  ];
+  // ORTA: 2-3 balon, orta engel
+  var medMaps = [
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:0}],wa:[{r:1,c:2},{r:2,c:2},{r:3,c:2}]},
+    {s:{r:0,c:4},ba:[{r:4,c:0,ci:1}],wa:[{r:2,c:2},{r:1,c:1}]},
+    {s:{r:4,c:0},ba:[{r:0,c:0,ci:2},{r:0,c:4,ci:3}],wa:[{r:2,c:1},{r:2,c:3}]},
+    {s:{r:4,c:2},ba:[{r:0,c:0,ci:0},{r:0,c:4,ci:1}],wa:[{r:2,c:2}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:2},{r:4,c:4,ci:3},{r:0,c:0,ci:0}],wa:[{r:2,c:2}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:1}],wa:[{r:1,c:1},{r:2,c:2},{r:3,c:3}]},
+    {s:{r:2,c:0},ba:[{r:0,c:4,ci:2},{r:4,c:4,ci:3}],wa:[{r:1,c:2},{r:3,c:2}]},
+    {s:{r:4,c:0},ba:[{r:0,c:2,ci:0},{r:0,c:4,ci:1}],wa:[{r:2,c:0},{r:2,c:1},{r:2,c:3}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:2},{r:2,c:4,ci:3}],wa:[{r:1,c:2},{r:3,c:2},{r:2,c:1}]},
+    {s:{r:4,c:0},ba:[{r:0,c:0,ci:0},{r:0,c:2,ci:1},{r:0,c:4,ci:2}],wa:[{r:2,c:1},{r:2,c:3}]},
+    {s:{r:0,c:0},ba:[{r:4,c:4,ci:3},{r:2,c:2,ci:0}],wa:[{r:1,c:3},{r:3,c:1}]},
+    {s:{r:4,c:4},ba:[{r:0,c:0,ci:1},{r:0,c:4,ci:2}],wa:[{r:2,c:2},{r:2,c:3}]},
+    {s:{r:2,c:2},ba:[{r:0,c:0,ci:3},{r:4,c:0,ci:0},{r:0,c:4,ci:1}],wa:[{r:1,c:2},{r:3,c:2}]},
+    {s:{r:4,c:0},ba:[{r:0,c:1,ci:2},{r:0,c:3,ci:3}],wa:[{r:2,c:0},{r:2,c:2},{r:2,c:4}]},
+    {s:{r:0,c:2},ba:[{r:4,c:0,ci:0},{r:4,c:4,ci:1}],wa:[{r:2,c:1},{r:2,c:3}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:2},{r:2,c:0,ci:3}],wa:[{r:1,c:1},{r:3,c:3},{r:1,c:3}]},
+    {s:{r:0,c:0},ba:[{r:4,c:2,ci:0},{r:4,c:4,ci:1}],wa:[{r:2,c:0},{r:2,c:1},{r:2,c:3}]},
+    {s:{r:4,c:2},ba:[{r:0,c:0,ci:2},{r:0,c:2,ci:3},{r:0,c:4,ci:0}],wa:[{r:2,c:1},{r:2,c:3}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:1},{r:2,c:2,ci:2}],wa:[{r:1,c:0},{r:3,c:0},{r:1,c:4},{r:3,c:4}]},
+    {s:{r:0,c:4},ba:[{r:4,c:0,ci:3},{r:2,c:2,ci:0},{r:4,c:4,ci:1}],wa:[{r:1,c:2},{r:3,c:2}]}
+  ];
+  // ZOR: 3-4 balon, çok engel
+  var hardMaps = [
+    {s:{r:4,c:0},ba:[{r:0,c:0,ci:0},{r:0,c:2,ci:1},{r:0,c:4,ci:2},{r:4,c:4,ci:3}],wa:[{r:2,c:1},{r:2,c:3}]},
+    {s:{r:2,c:2},ba:[{r:0,c:0,ci:0},{r:0,c:4,ci:1},{r:4,c:0,ci:2},{r:4,c:4,ci:3}],wa:[{r:1,c:2},{r:3,c:2},{r:2,c:1},{r:2,c:3}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:0},{r:2,c:4,ci:1},{r:0,c:2,ci:2}],wa:[{r:1,c:1},{r:2,c:2},{r:3,c:3},{r:1,c:3}]},
+    {s:{r:0,c:0},ba:[{r:4,c:4,ci:3},{r:4,c:2,ci:0},{r:2,c:4,ci:1}],wa:[{r:1,c:1},{r:2,c:0},{r:0,c:2},{r:3,c:3}]},
+    {s:{r:4,c:2},ba:[{r:0,c:0,ci:2},{r:0,c:4,ci:3},{r:2,c:0,ci:0},{r:2,c:4,ci:1}],wa:[{r:1,c:2},{r:3,c:2}]},
+    {s:{r:0,c:4},ba:[{r:4,c:0,ci:0},{r:2,c:2,ci:1},{r:4,c:4,ci:2}],wa:[{r:1,c:2},{r:2,c:3},{r:3,c:1}]},
+    {s:{r:4,c:0},ba:[{r:0,c:0,ci:3},{r:0,c:2,ci:0},{r:0,c:4,ci:1},{r:2,c:2,ci:2}],wa:[{r:2,c:0},{r:2,c:1},{r:2,c:3},{r:2,c:4}]},
+    {s:{r:2,c:0},ba:[{r:0,c:2,ci:0},{r:0,c:4,ci:1},{r:4,c:2,ci:2},{r:4,c:4,ci:3}],wa:[{r:1,c:1},{r:3,c:1},{r:2,c:2}]},
+    {s:{r:0,c:2},ba:[{r:4,c:0,ci:0},{r:4,c:2,ci:1},{r:4,c:4,ci:2}],wa:[{r:2,c:0},{r:2,c:1},{r:2,c:3},{r:2,c:4}]},
+    {s:{r:4,c:4},ba:[{r:0,c:0,ci:3},{r:0,c:2,ci:0},{r:2,c:0,ci:1},{r:0,c:4,ci:2}],wa:[{r:1,c:3},{r:2,c:3},{r:3,c:1}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:0},{r:1,c:2,ci:1},{r:3,c:4,ci:2}],wa:[{r:2,c:1},{r:2,c:3},{r:0,c:2},{r:4,c:2}]},
+    {s:{r:0,c:0},ba:[{r:4,c:4,ci:3},{r:4,c:0,ci:0},{r:0,c:4,ci:1},{r:2,c:2,ci:2}],wa:[{r:1,c:1},{r:1,c:3},{r:3,c:1},{r:3,c:3}]},
+    {s:{r:2,c:4},ba:[{r:0,c:0,ci:0},{r:2,c:0,ci:1},{r:4,c:0,ci:2}],wa:[{r:0,c:2},{r:1,c:2},{r:3,c:2},{r:4,c:2}]},
+    {s:{r:4,c:2},ba:[{r:0,c:0,ci:3},{r:0,c:4,ci:0},{r:2,c:2,ci:1}],wa:[{r:1,c:1},{r:1,c:3},{r:3,c:0},{r:3,c:4}]},
+    {s:{r:0,c:0},ba:[{r:4,c:0,ci:2},{r:4,c:2,ci:3},{r:4,c:4,ci:0},{r:2,c:4,ci:1}],wa:[{r:2,c:0},{r:2,c:1},{r:2,c:2},{r:2,c:3}]},
+    {s:{r:4,c:4},ba:[{r:0,c:0,ci:0},{r:0,c:2,ci:1},{r:2,c:0,ci:2}],wa:[{r:1,c:3},{r:2,c:3},{r:3,c:1},{r:3,c:3}]},
+    {s:{r:2,c:2},ba:[{r:0,c:1,ci:3},{r:0,c:3,ci:0},{r:4,c:1,ci:1},{r:4,c:3,ci:2}],wa:[{r:1,c:2},{r:3,c:2},{r:2,c:1},{r:2,c:3}]},
+    {s:{r:0,c:4},ba:[{r:4,c:0,ci:0},{r:4,c:2,ci:1},{r:2,c:0,ci:2},{r:0,c:0,ci:3}],wa:[{r:1,c:2},{r:2,c:3},{r:3,c:2}]},
+    {s:{r:4,c:0},ba:[{r:0,c:4,ci:0},{r:0,c:0,ci:1},{r:2,c:4,ci:2},{r:4,c:4,ci:3}],wa:[{r:1,c:2},{r:2,c:1},{r:2,c:3},{r:3,c:2}]},
+    {s:{r:0,c:2},ba:[{r:4,c:0,ci:0},{r:4,c:4,ci:1},{r:2,c:0,ci:2},{r:2,c:4,ci:3}],wa:[{r:1,c:1},{r:1,c:3},{r:3,c:1},{r:3,c:3}]}
+  ];
+
+  function buildDiff(maps, count) {
+    var result = [];
+    for (var i = 0; i < count; i++) {
+      var m = maps[i % maps.length];
+      result.push({
+        start: {r:m.s.r, c:m.s.c},
+        balloons: m.ba.map(function(b){ return {r:b.r,c:b.c,ci:b.ci,popped:false}; }),
+        walls: m.wa.map(function(w){ return {r:w.r,c:w.c}; })
+      });
+    }
+    return result;
+  }
+
+  G.lvls.kolay = buildDiff(easyMaps, 20);
+  G.lvls.orta  = buildDiff(medMaps,  20);
+  G.lvls.zor   = buildDiff(hardMaps, 20);
+}
+
+/* ── ZORLUK SEÇ ── */
+function selectDiff(diff) {
+  G.diff = diff;
+  var labels = { kolay:'🟢 Kolay', orta:'🟡 Orta', zor:'🔴 Zor' };
+  document.getElementById('mapTitle').innerText = labels[diff];
+  document.getElementById('sDiff').classList.remove('on');
+  document.getElementById('sMap').classList.add('on');
+  drawMap();
+}
+function goDiff() {
+  document.getElementById('sMap').classList.remove('on');
+  document.getElementById('sPlay').classList.remove('on');
+  document.getElementById('sDiff').classList.add('on');
+}
+
+/* ── HARİTA ── */
+function goMap() {
+  document.getElementById('sMap').classList.add('on');
+  document.getElementById('sPlay').classList.remove('on');
+  drawMap();
+}
+function drawMap() {
+  var g = document.getElementById('lvlGrid');
+  g.innerHTML = '';
+  var lvls = G.lvls[G.diff];
+  var unlocked = G.unlocked[G.diff];
+  var done = G.done[G.diff];
+  for (var i = 0; i < lvls.length; i++) {
+    (function(idx){
+      var d = document.createElement('div');
+      var isOpen = (idx+1) <= unlocked;
+      var isDone = done.indexOf(idx+1) >= 0;
+      d.className = 'lc'+(isOpen?' open':'')+(isDone?' done':'');
+      d.innerText = idx+1;
+      if (isOpen) d.onclick = function(){ startLvl(idx); };
+      g.appendChild(d);
+    })(i);
+  }
+  document.getElementById('scoreDisp').innerText = '🎈 '+G.done[G.diff].length;
+}
+
+/* ── BÖLÜM BAŞLAT ── */
+function startLvl(idx) {
+  G.cur = idx;
+  var l = G.lvls[G.diff][idx];
+  l.balloons.forEach(function(b){ b.popped=false; });
+  G.pos = {r:l.start.r, c:l.start.c};
+  G.cmds = [];
+  G.running = false;
+  G.activeStep = -1;
+  document.getElementById('lvlLabel').innerText = 'Bölüm '+(idx+1);
+  document.getElementById('dropZone').innerHTML = '';
+  document.getElementById('cntBadge').innerText = '0';
+  document.getElementById('winModal').classList.remove('show');
+  document.getElementById('failModal').classList.remove('show');
+  document.getElementById('editTray').classList.remove('open');
+  document.getElementById('pwOv').classList.remove('show');
+  document.getElementById('needle').style.fontSize = '36px';
+  document.getElementById('sMap').classList.remove('on');
+  document.getElementById('sPlay').classList.add('on');
+  drawBoard();
+}
+
+/* ── TAHTA ── */
+function drawBoard() {
+  var board = document.getElementById('board');
+  board.querySelectorAll('.sq').forEach(function(s){ s.remove(); });
+  var l = G.lvls[G.diff][G.cur];
+  for (var i = 0; i < 25; i++) {
+    (function(r,c){
+      var sq = document.createElement('div');
+      sq.className = 'sq '+((r+c)%2===0?'sq-light':'sq-dark');
+      sq.onclick = function(){ onSqClick(r,c); };
+
+      var balloon = l.balloons.find(function(b){ return b.r===r&&b.c===c&&!b.popped; });
+      if (balloon) {
+        var wrap = document.createElement('div');
+        wrap.className = 'balloon-wrap';
+        wrap.id = 'balloon-'+r+'-'+c;
+        wrap.innerHTML = '<div class="balloon-svg">'+makeBalloonSVG(BALLOON_COLORS[balloon.ci % BALLOON_COLORS.length])+'</div>'
+          + makeParticles(BALLOON_COLORS[balloon.ci % BALLOON_COLORS.length]);
+        sq.appendChild(wrap);
+      }
+      if (l.walls.some(function(w){ return w.r===r&&w.c===c; })){
+        sq.innerText='🧱'; sq.style.background='#c8b89a';
+      }
+      board.appendChild(sq);
+    })(Math.floor(i/5), i%5);
+  }
+  moveNeedle();
+}
+
+function moveNeedle() {
+  var n = document.getElementById('needle');
+  n.style.top  = (G.pos.r*57+4)+'px';
+  n.style.left = (G.pos.c*57+4)+'px';
+}
+
+function popBalloonAnim(r, c, color) {
+  var wrap = document.getElementById('balloon-'+r+'-'+c);
+  if (!wrap) return;
+  wrap.classList.add('popping');
+  wrap.classList.add('burst');
+  setTimeout(function(){ if(wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 450);
+}
+
+function spawnConfetti(r,c) {
+  var board = document.getElementById('board');
+  ['🌟','✨','🎊','💜','🎈'].forEach(function(em,i){
+    var el = document.createElement('div');
+    el.className='confetti';
+    el.innerText=em;
+    el.style.top  = (r*57+4+Math.random()*20-10)+'px';
+    el.style.left = (c*57+4+Math.random()*20-10)+'px';
+    el.style.animationDelay=(i*0.08)+'s';
+    board.appendChild(el);
+    setTimeout(function(){ el.remove(); },900);
+  });
+}
+
+/* ── EDİTÖR ── */
+function toggleEdit() {
+  var tray = document.getElementById('editTray');
+  if (tray.classList.contains('open')){ tray.classList.remove('open'); return; }
+  if (G.editorUnlocked){ tray.classList.add('open'); return; }
+  document.getElementById('pwOv').classList.add('show');
+  document.getElementById('pwInput').value='';
+  document.getElementById('pwErr').style.display='none';
+  setTimeout(function(){ document.getElementById('pwInput').focus(); },100);
+}
+function checkPw() {
+  if (document.getElementById('pwInput').value==='sifigu') {
+    G.editorUnlocked=true;
+    document.getElementById('pwOv').classList.remove('show');
+    document.getElementById('editTray').classList.add('open');
+  } else {
+    var err=document.getElementById('pwErr');
+    err.style.display='block';
+    document.getElementById('pwInput').value='';
+    err.style.animation='none'; void err.offsetWidth; err.style.animation='shake 0.4s ease';
+  }
+}
+function closePw(){ document.getElementById('pwOv').classList.remove('show'); }
+function selTool(t) {
+  G.tool=t;
+  ['N','B','W','X'].forEach(function(x){ document.getElementById('t'+x).classList.remove('sel'); });
+  document.getElementById('t'+t).classList.add('sel');
+}
+function onSqClick(r,c) {
+  if (!document.getElementById('editTray').classList.contains('open')) return;
+  var l=G.lvls[G.diff][G.cur];
+  if (G.tool==='N'){ l.start={r:r,c:c}; G.pos={r:r,c:c}; }
+  else if (G.tool==='B'){
+    if(!l.balloons.some(function(b){return b.r===r&&b.c===c;}))
+      l.balloons.push({r:r,c:c,ci:l.balloons.length%BALLOON_COLORS.length,popped:false});
+  }
+  else if (G.tool==='W'){ if(!l.walls.some(function(w){return w.r===r&&w.c===c;})) l.walls.push({r:r,c:c}); }
+  else if (G.tool==='X'){
+    l.balloons=l.balloons.filter(function(b){return!(b.r===r&&b.c===c);});
+    l.walls=l.walls.filter(function(w){return!(w.r===r&&w.c===c);});
+  }
+  drawBoard();
+}
+
+/* ── SÜRÜKLE BIRAK ── */
+function srcDrag(e,dir){ G.dragFromSrc=true; G.dragSrcIdx=-1; e.dataTransfer.setData('dir',dir); }
+function onDZOver(e){ e.preventDefault(); document.getElementById('dropZone').classList.add('drag-over'); }
+function onDZLeave(e){ var z=document.getElementById('dropZone'); if(!z.contains(e.relatedTarget)) z.classList.remove('drag-over'); }
+function onDZDrop(e){
+  e.preventDefault();
+  var z=document.getElementById('dropZone');
+  z.classList.remove('drag-over');
+  if(G.cmds.length>=20){ flashReject(z); return; }
+  var dir=e.dataTransfer.getData('dir');
+  if(dir) addCmdDirect(dir);
+}
+document.addEventListener('dragover',function(e){e.preventDefault();});
+document.addEventListener('drop',function(e){
+  var z=document.getElementById('dropZone');
+  if(z&&!z.contains(e.target)&&G.dragSrcIdx>=0){ removeChip(G.dragSrcIdx); G.dragSrcIdx=-1; }
+});
+function flashReject(zone){ zone.classList.add('reject'); setTimeout(function(){zone.classList.remove('reject');},500); }
+function addCmd(dir){ if(G.running||G.cmds.length>=20) return; addCmdDirect(dir); }
+function addCmdDirect(dir){ if(G.cmds.length>=20) return; G.cmds.push(dir); renderChips(-1); }
+function renderChips(activeIdx) {
+  var z=document.getElementById('dropZone');
+  z.innerHTML='';
+  G.cmds.forEach(function(dir,idx){ z.appendChild(makeChip(dir,idx,activeIdx)); });
+  document.getElementById('cntBadge').innerText=G.cmds.length;
+  if(activeIdx>=0){ var chips=z.querySelectorAll('.chip'); if(chips[activeIdx]) chips[activeIdx].scrollIntoView({block:'nearest',inline:'center'}); }
+}
+function makeChip(dir,idx,activeIdx) {
+  var chip=document.createElement('div');
+  chip.className='chip '+DIR_COLORS[dir];
+  if(idx===activeIdx) chip.classList.add('active-step');
+  else if(activeIdx>=0&&idx<activeIdx) chip.classList.add('done-step');
+  chip.draggable=true;
+  chip.innerText=DIR_ARROWS[dir];
+  chip.ondragstart=function(e){ G.dragFromSrc=false; G.dragSrcIdx=idx; e.dataTransfer.setData('dir',dir); chip.classList.add('dragging'); };
+  chip.ondragend=function(){ chip.classList.remove('dragging'); };
+  return chip;
+}
+function removeChip(idx) {
+  var z=document.getElementById('dropZone');
+  var chips=Array.from(z.querySelectorAll('.chip'));
+  if(chips[idx]){ chips[idx].classList.add('removing'); setTimeout(function(){ G.cmds.splice(idx,1); renderChips(-1); },260); }
+}
+
+/* ── HATA MODALI ── */
+function showFail(title, msg) {
+  var n = document.getElementById('needle');
+  n.classList.remove('hopping');
+  n.classList.add('shaking');
+  setTimeout(function(){ n.classList.remove('shaking'); }, 700);
+  document.getElementById('failTitle').innerText = title;
+  document.getElementById('failMsg').innerText = msg;
+  document.getElementById('failModal').classList.add('show');
+}
+function retryLvl() {
+  document.getElementById('failModal').classList.remove('show');
+  startLvl(G.cur);
+}
+
+/* ── KOD ÇALIŞTIR ── */
+async function runCode() {
+  if (G.running || !G.cmds.length) return;
+  try { getCtx(); } catch(e){}
+  G.running = true;
+  var l = G.lvls[G.diff][G.cur];
+  var n = document.getElementById('needle');
+
+  for (var i = 0; i < G.cmds.length; i++) {
+    renderChips(i);
+    var step = G.cmds[i];
+
+    if (step === 'POP') {
+      // Patlat komutu
+      var balloon = l.balloons.find(function(b){ return b.r===G.pos.r&&b.c===G.pos.c&&!b.popped; });
+      if (balloon) {
+        balloon.popped = true;
+        playSound('pop');
+        popBalloonAnim(G.pos.r, G.pos.c, BALLOON_COLORS[balloon.ci % BALLOON_COLORS.length]);
+        spawnConfetti(G.pos.r, G.pos.c);
+        await new Promise(function(res){ setTimeout(res, 500); });
+      } else {
+        // Boş yerde patlat → hata
+        playSound('miss');
+        G.running = false;
+        renderChips(-1);
+        setTimeout(function(){ showFail('KAÇIRDIN! 🎈', 'Burada balon yok! İğneyi balona götür.'); }, 200);
+        return;
+      }
+      continue;
+    }
+
+    // Hareket
+    var nr = G.pos.r, nc = G.pos.c;
+    if (step==='UP'    && nr>0) nr--;
+    if (step==='DOWN'  && nr<4) nr++;
+    if (step==='LEFT'  && nc>0) nc--;
+    if (step==='RIGHT' && nc<4) nc++;
+
+    if (l.walls.some(function(w){ return w.r===nr&&w.c===nc; })) {
+      playSound('wall');
+      G.running = false;
+      renderChips(-1);
+      setTimeout(function(){ showFail('DUVAR! 🧱', 'Yolda bir duvar var, başka bir yol dene!'); }, 300);
+      return;
+    }
+
+    G.pos.r=nr; G.pos.c=nc;
+    playSound('move');
+    n.classList.remove('hopping');
+    void n.offsetWidth;
+    n.classList.add('hopping');
+    moveNeedle();
+
+    await new Promise(function(res){ setTimeout(res, 600); });
+    n.classList.remove('hopping');
+  }
+
+  renderChips(-1);
+
+  if (l.balloons.every(function(b){ return b.popped; })) {
+    var done = G.done[G.diff];
+    if (done.indexOf(G.cur+1)<0) done.push(G.cur+1);
+    if (G.unlocked[G.diff]===(G.cur+1)) G.unlocked[G.diff]++;
+    playSound('win');
+    document.getElementById('winModal').classList.add('show');
+  } else {
+    playSound('sad');
+    showFail('OLMADI! 😢', 'Bazı balonlar hâlâ orada duruyor!');
+  }
+  G.running = false;
+}
+
+function goNext() {
+  document.getElementById('winModal').classList.remove('show');
+  var lvls = G.lvls[G.diff];
+  if (G.cur < lvls.length-1) startLvl(G.cur+1); else goMap();
+}
+
+mkLvls();
+</script>
+</body>
+</html>
